@@ -8,6 +8,7 @@ A digital wireless control link that sends three flight-control commands — **a
 - 500 ms link-loss failsafe centres all servos
 - Optional half-duplex acknowledgements (every 5th packet)
 
+📄 **Full report (IEEE format):** [docs/DCS_Project_Report_IEEE_24BEC1263.pdf](docs/DCS_Project_Report_IEEE_24BEC1263.pdf)  
 📹 **Demo video:** [Google Drive](https://drive.google.com/drive/folders/17KGEKCCFoPgjZRtqW9QMCZfphlg0HTpz?usp=sharing)
 
 > ⚠️ This is a ground-based educational prototype, **not** a flight-certified controller. Do not use it to fly a real aircraft.
@@ -29,12 +30,29 @@ A digital wireless control link that sends three flight-control commands — **a
 └──────────────────────────┘                        └──────────────────────────┘
 ```
 
+![System architecture](docs/system-architecture.jpg)
+
+### The hardware
+
+| Transmitter (ground controller) | Receiver (simulated drone) |
+|---|---|
+| ![Transmitter node](docs/photos/transmitter-node.jpg) | ![Receiver node](docs/photos/receiver-node.jpg) |
+| ![Transmitter OLED](docs/photos/transmitter-oled.jpg) | ![Receiver OLED](docs/photos/receiver-oled.jpg) |
+
+![Complete bench setup](docs/photos/complete-setup.jpg)
+*Complete setup: battery with 3.3 V and 5 V buck converters, transmitter (left) and receiver (right).*
+
 ## Repository layout
 
 ```
 firmware/
   Transmitter/Transmitter.ino   ground controller sketch
   Receiver/Receiver.ino         simulated-drone sketch
+docs/
+  DCS_Project_Report_IEEE_24BEC1263.pdf   full project report
+  circuits/                     transmitter, receiver and power schematics
+  photos/                       hardware photos
+  results/                      OLED result captures and charts
 ```
 
 ## Hardware
@@ -79,6 +97,14 @@ firmware/
 | Elevator | 27 |
 | Rudder | 32 |
 
+### Circuit diagrams
+
+| Transmitter | Receiver |
+|---|---|
+| ![Transmitter schematic](docs/circuits/transmitter.png) | ![Receiver schematic](docs/circuits/receiver.png) |
+
+![Power distribution](docs/circuits/power-distribution.png)
+
 Power the servos from an external regulated **5 V** supply and tie its ground to the ESP32 ground. GPIO 26 is reserved for LoRa DIO0 — do not put a servo on it.
 
 ## Building and flashing
@@ -110,6 +136,10 @@ Identical on both boards:
 | Hardware CRC | enabled |
 | Time on air (11-byte packet) | 41.2 ms |
 
+![Time on air vs spreading factor](docs/results/time-on-air-vs-sf.png)
+
+SF7 is the only spreading factor whose airtime fits inside the 50 ms command interval at 125 kHz.
+
 ## Packet format
 
 **Command packet (TX → RX), 11 bytes, little-endian**
@@ -140,6 +170,8 @@ A command reaches the servos only if it passes every stage:
 6. Sequence number is newer than the last (wrap-safe; duplicates and old packets rejected, gaps counted as lost)
 7. Values clamped to per-servo limits, link timer reset
 
+![Receiver validation pipeline](docs/receiver-validation-pipeline.jpg)
+
 If no valid packet arrives for 500 ms, all servos go to neutral (90°) and the OLED shows **LINK LOST**.
 
 ## Results
@@ -153,6 +185,22 @@ Seven paired TX/RX readings were taken under two signal conditions (≈ −107 d
 | Packet loss, strong signal | 20.0 % |
 | Packet loss, weak signal | 20.6 – 20.9 % |
 | ACKs received at TX | 0 |
+
+**OLED captures** — transmitter (cyan) left, receiver (white) right:
+
+| Set A — weak signal (≈ −107 dBm) | Set B — strong signal (−68 to −77 dBm) |
+|---|---|
+| ![](docs/results/setA-weak-1.jpg) | ![](docs/results/setB-strong-1.jpg) |
+| ![](docs/results/setA-weak-2.jpg) | ![](docs/results/setB-strong-2.jpg) |
+| ![](docs/results/setA-weak-3.jpg) | ![](docs/results/setB-strong-3.jpg) |
+
+| RSSI & SNR per observation | Received vs transmitted command |
+|---|---|
+| ![](docs/results/rssi-snr.png) | ![](docs/results/command-accuracy.png) |
+
+| Packet loss vs RSSI | Designed ACK timing |
+|---|---|
+| ![](docs/results/loss-vs-rssi.png) | ![](docs/results/ack-timing.jpg) |
 
 Packet loss stayed at almost exactly 1 in 5 across a ~35 dB change in signal strength, while the TX never received an acknowledgement. Since an ACK is requested on every 5th packet, the loss points to the **ACK exchange**, not the radio channel.
 
